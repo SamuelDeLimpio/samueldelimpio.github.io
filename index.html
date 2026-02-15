@@ -298,15 +298,24 @@
       } catch {}
     })();
 
-    // Evita doble-tap zoom en iOS (sin romper scroll)
-    let lastTouchEnd = 0;
-    document.addEventListener('touchend', (e) => {
-      const now = Date.now();
-      if (now - lastTouchEnd <= 300) {
-        e.preventDefault();
-      }
-      lastTouchEnd = now;
-    }, { passive: false });
+    // Evita doble-tap zoom SOLO fuera de controles (no afecta botones)
+let lastTouchEnd = 0;
+document.addEventListener('touchend', (e) => {
+  const target = e.target;
+  const tag = target?.tagName?.toLowerCase();
+
+  // Si tocás un control, no bloqueamos nada
+  if (tag === 'button' || tag === 'input' || tag === 'a' || tag === 'select' || tag === 'textarea') {
+    lastTouchEnd = Date.now();
+    return;
+  }
+
+  const now = Date.now();
+  if (now - lastTouchEnd <= 300) {
+    e.preventDefault();
+  }
+  lastTouchEnd = now;
+}, { passive: false });
 
   </script>
 </body>
