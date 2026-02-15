@@ -268,23 +268,6 @@
       else if (e.key.toLowerCase() === 'g') { els.gotoStep.focus(); }
     });
 
-    // Tap móvil: izquierda = anterior, derecha = siguiente
-    document.addEventListener('touchend', (e) => {
-      if (!seq.length) return;
-      const t = e.target;
-      if (isInteractiveTarget(t)) return;
-
-      const touch = e.changedTouches && e.changedTouches[0];
-      if (!touch) return;
-
-      const x = touch.clientX;
-      const w = window.innerWidth;
-
-      // Izquierda 40% = anterior, derecha 60% = siguiente
-      if (x < w * 0.40) prevStep();
-      else nextStep();
-    }, { passive: true });
-
     // Drag & drop
     els.drop.addEventListener('dragover', (e) => { e.preventDefault(); els.drop.classList.add('dragover'); });
     els.drop.addEventListener('dragleave', () => els.drop.classList.remove('dragover'));
