@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>String Art – Siguiente número</title>
+  <title>String Art – Secuencia de pines</title>
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; padding: 24px; }
     .wrap { max-width: 980px; margin: 0 auto; }
@@ -19,7 +19,7 @@
     .mini { padding: 12px; border: 1px solid #eee; border-radius: 12px; background: #fff; }
     .mini h3 { margin: 0 0 8px; font-size: 14px; color: #666; font-weight: 650; }
     .mini .val { font-size: 26px; font-weight: 750; }
-    .hint { margin-top: 12px; color: #666; font-size: 14px; }
+    .hint { margin-top: 12px; color: #666; font-size: 14px; text-align:center; }
     kbd { padding: 2px 7px; border: 1px solid #ddd; border-bottom-width: 2px; border-radius: 6px; background: #fff; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
     .ok { color: #0a7; font-weight: 650; }
     .bad { color: #c33; font-weight: 650; }
@@ -30,6 +30,8 @@
     .drop.dragover { border-color: #999; color: #333; background: #f3f3f3; }
     .group { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     .lbl { font-size: 14px; color:#666; }
+    .navBtns { display:flex; gap:10px; justify-content:center; margin-top: 10px; flex-wrap:wrap; }
+    .navBtns button { min-width: 140px; }
   </style>
 </head>
 <body>
@@ -59,6 +61,11 @@
       <div class="big" id="current">—</div>
       <div class="sub" id="progress">Cargá un .txt para comenzar</div>
 
+      <div class="navBtns">
+        <button id="prevBtn" type="button">◀︎ Anterior</button>
+        <button id="nextBtn" type="button">Siguiente ▶︎</button>
+      </div>
+
       <div class="row">
         <div class="mini">
           <h3>Anterior</h3>
@@ -78,7 +85,9 @@
         Controles: <kbd>Click</kbd> o <kbd>Espacio</kbd> = siguiente ·
         <kbd>←</kbd> o <kbd>Backspace</kbd> = anterior ·
         <kbd>R</kbd> = reiniciar ·
-        <kbd>G</kbd> = ir al paso
+        <kbd>G</kbd> = enfocar “Ir al paso” ·
+        <br/>
+        En móvil: <b>tap izquierda</b> = anterior · <b>tap derecha</b> = siguiente
       </div>
     </div>
   </div>
@@ -104,10 +113,12 @@
       prev: document.getElementById('prev'),
       next: document.getElementById('next'),
       total: document.getElementById('total'),
+      prevBtn: document.getElementById('prevBtn'),
+      nextBtn: document.getElementById('nextBtn'),
     };
 
-    const STORAGE_KEY_SEQ = 'stringart_seq_v2';
-    const STORAGE_KEY_IDX = 'stringart_idx_v2';
+    const STORAGE_KEY_SEQ = 'stringart_seq_v3';
+    const STORAGE_KEY_IDX = 'stringart_idx_v3';
 
     function setStatus(msg, good=true) {
       els.status.textContent = msg;
@@ -115,55 +126,12 @@
     }
 
     function parseSequence(text) {
+      // Acepta números separados por coma y/o salto de línea
       const cleaned = text.replace(/\r/g, '').replace(/\n/g, ',').trim();
       const parts = cleaned.split(',').map(s => s.trim()).filter(Boolean);
       const bad = parts.find(p => !/^-?\d+$/.test(p));
       if (bad) throw new Error(`Formato inválido: "${bad}". Deben ser SOLO enteros separados por coma.`);
       return parts.map(p => Number(p));
-    }
-
-    function render() {
-      if (!seq.length) return;
-
-      const cur = seq[i];
-      const prev = (i > 0) ? seq[i - 1] : '—';
-      const next = (i < seq.length - 1) ? seq[i + 1] : '—';
-
-      els.current.textContent = String(cur);
-      els.prev.textContent = String(prev);
-      els.next.textContent = String(next);
-      els.total.textContent = String(seq.length);
-      els.progress.textContent = `Paso ${i + 1} / ${seq.length}`;
-
-      // Autoguardado
-      saveProgress();
-    }
-
-    function nextStep() {
-      if (!seq.length) return;
-      if (i < seq.length - 1) { i++; render(); }
-    }
-    function prevStep() {
-      if (!seq.length) return;
-      if (i > 0) { i--; render(); }
-    }
-    function resetToStart() {
-      if (!seq.length) return;
-      i = 0;
-      render();
-      setStatus('Reiniciado al paso 1.', true);
-    }
-
-    function goToStep(step1Based) {
-      if (!seq.length) return;
-      const step = Number(step1Based);
-      if (!Number.isFinite(step) || step < 1 || step > seq.length) {
-        setStatus(`Paso inválido. Debe ser entre 1 y ${seq.length}.`, false);
-        return;
-      }
-      i = step - 1;
-      render();
-      setStatus(`Saltaste al paso ${step}.`, true);
     }
 
     function saveProgress() {
@@ -190,6 +158,52 @@
       }
     }
 
+    function render() {
+      if (!seq.length) return;
+
+      const cur = seq[i];
+      const prev = (i > 0) ? seq[i - 1] : '—';
+      const next = (i < seq.length - 1) ? seq[i + 1] : '—';
+
+      els.current.textContent = String(cur);
+      els.prev.textContent = String(prev);
+      els.next.textContent = String(next);
+      els.total.textContent = String(seq.length);
+      els.progress.textContent = `Paso ${i + 1} / ${seq.length}`;
+
+      // Autoguardado
+      saveProgress();
+    }
+
+    function nextStep() {
+      if (!seq.length) return;
+      if (i < seq.length - 1) { i++; render(); }
+    }
+
+    function prevStep() {
+      if (!seq.length) return;
+      if (i > 0) { i--; render(); }
+    }
+
+    function resetToStart() {
+      if (!seq.length) return;
+      i = 0;
+      render();
+      setStatus('Reiniciado al paso 1.', true);
+    }
+
+    function goToStep(step1Based) {
+      if (!seq.length) return;
+      const step = Number(step1Based);
+      if (!Number.isFinite(step) || step < 1 || step > seq.length) {
+        setStatus(`Paso inválido. Debe ser entre 1 y ${seq.length}.`, false);
+        return;
+      }
+      i = step - 1;
+      render();
+      setStatus(`Saltaste al paso ${step}.`, true);
+    }
+
     async function handleFile(file) {
       const text = await file.text();
       seq = parseSequence(text);
@@ -199,7 +213,13 @@
       setStatus(`Archivo cargado: ${file.name} (${seq.length} pasos).`, true);
     }
 
-    // Eventos
+    function isInteractiveTarget(t) {
+      const tag = t?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'button' || tag === 'a' || tag === 'select' || tag === 'textarea') return true;
+      return false;
+    }
+
+    // === Eventos ===
     els.file.addEventListener('change', async (e) => {
       const f = e.target.files?.[0];
       if (!f) return;
@@ -227,6 +247,10 @@
       setStatus('Guardado borrado.', true);
     });
 
+    // Botones táctiles
+    els.prevBtn.addEventListener('click', (e) => { e.stopPropagation(); prevStep(); });
+    els.nextBtn.addEventListener('click', (e) => { e.stopPropagation(); nextStep(); });
+
     // Click fuera de inputs/botones = siguiente
     document.addEventListener('click', (e) => {
       const tag = e.target?.tagName?.toLowerCase();
@@ -243,6 +267,23 @@
       else if (e.key.toLowerCase() === 'r') { resetToStart(); }
       else if (e.key.toLowerCase() === 'g') { els.gotoStep.focus(); }
     });
+
+    // Tap móvil: izquierda = anterior, derecha = siguiente
+    document.addEventListener('touchend', (e) => {
+      if (!seq.length) return;
+      const t = e.target;
+      if (isInteractiveTarget(t)) return;
+
+      const touch = e.changedTouches && e.changedTouches[0];
+      if (!touch) return;
+
+      const x = touch.clientX;
+      const w = window.innerWidth;
+
+      // Izquierda 40% = anterior, derecha 60% = siguiente
+      if (x < w * 0.40) prevStep();
+      else nextStep();
+    }, { passive: true });
 
     // Drag & drop
     els.drop.addEventListener('dragover', (e) => { e.preventDefault(); els.drop.classList.add('dragover'); });
