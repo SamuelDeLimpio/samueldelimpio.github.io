@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>String Art – Siguiente número</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; padding: 24px; }
+    .wrap { max-width: 980px; margin: 0 auto; }
+    .top { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    input[type="file"] { padding: 8px; border: 1px solid #ddd; border-radius: 8px; }
+    input[type="number"] { padding: 10px 12px; border: 1px solid #ddd; border-radius: 10px; width: 150px; }
+    button { padding: 10px 14px; border: 1px solid #ddd; border-radius: 10px; background: #fff; cursor: pointer; }
+    button:active { transform: translateY(1px); }
+    .card { margin-top: 16px; padding: 18px; border: 1px solid #eee; border-radius: 14px; background: #fafafa; }
+    .big { font-size: 84px; font-weight: 800; line-height: 1; text-align: center; margin: 18px 0 6px; user-select: none; }
+    .sub { text-align: center; font-size: 16px; color: #555; user-select: none; }
+    .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 14px; }
+    .mini { padding: 12px; border: 1px solid #eee; border-radius: 12px; background: #fff; }
+    .mini h3 { margin: 0 0 8px; font-size: 14px; color: #666; font-weight: 650; }
+    .mini .val { font-size: 26px; font-weight: 750; }
+    .hint { margin-top: 12px; color: #666; font-size: 14px; }
+    kbd { padding: 2px 7px; border: 1px solid #ddd; border-bottom-width: 2px; border-radius: 6px; background: #fff; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .ok { color: #0a7; font-weight: 650; }
+    .bad { color: #c33; font-weight: 650; }
+    .drop {
+      margin-top: 12px; padding: 12px; border: 2px dashed #ddd; border-radius: 12px;
+      text-align: center; color: #777; background: #fff;
+    }
+    .drop.dragover { border-color: #999; color: #333; background: #f3f3f3; }
+    .group { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .lbl { font-size: 14px; color:#666; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>String Art – Secuencia de pines</h1>
+
+    <div class="top">
+      <input id="file" type="file" accept=".txt,text/plain" />
+
+      <div class="group">
+        <span class="lbl">Ir al paso:</span>
+        <input id="gotoStep" type="number" min="1" step="1" placeholder="Ej: 1200" />
+        <button id="gotoBtn" type="button">Ir</button>
+      </div>
+
+      <button id="save" type="button">Guardar</button>
+      <button id="load" type="button">Cargar</button>
+      <button id="reset" type="button">Reiniciar a 1</button>
+      <button id="clear" type="button">Borrar guardado</button>
+
+      <span id="status" class="sub"></span>
+    </div>
+
+    <div id="drop" class="drop">O arrastrá y soltá tu <b>.txt</b> aquí</div>
+
+    <div class="card" id="card" style="display:none;">
+      <div class="big" id="current">—</div>
+      <div class="sub" id="progress">Cargá un .txt para comenzar</div>
+
+      <div class="row">
+        <div class="mini">
+          <h3>Anterior</h3>
+          <div class="val" id="prev">—</div>
+        </div>
+        <div class="mini">
+          <h3>Siguiente</h3>
+          <div class="val" id="next">—</div>
+        </div>
+        <div class="mini">
+          <h3>Total pasos</h3>
+          <div class="val" id="total">—</div>
+        </div>
+      </div>
+
+      <div class="hint">
+        Controles: <kbd>Click</kbd> o <kbd>Espacio</kbd> = siguiente ·
+        <kbd>←</kbd> o <kbd>Backspace</kbd> = anterior ·
+        <kbd>R</kbd> = reiniciar ·
+        <kbd>G</kbd> = ir al paso
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Estado
+    let seq = [];
+    let i = 0; // índice actual (0-based)
+
+    const els = {
+      file: document.getElementById('file'),
+      gotoStep: document.getElementById('gotoStep'),
+      gotoBtn: document.getElementById('gotoBtn'),
+      save: document.getElementById('save'),
+      load: document.getElementById('load'),
+      reset: document.getElementById('reset'),
+      clear: document.getElementById('clear'),
+      status: document.getElementById('status'),
+      card: document.getElementById('card'),
+      drop: document.getElementById('drop'),
+      current: document.getElementById('current'),
+      progress: document.getElementById('progress'),
+      prev: document.getElementById('prev'),
+      next: document.getElementById('next'),
+      total: document.getElementById('total'),
+    };
+
+    const STORAGE_KEY_SEQ = 'stringart_seq_v2';
+    const STORAGE_KEY_IDX = 'stringart_idx_v2';
+
+    function setStatus(msg, good=true) {
+      els.status.textContent = msg;
+      els.status.className = good ? 'sub ok' : 'sub bad';
+    }
+
+    function parseSequence(text) {
+      const cleaned = text.replace(/\r/g, '').replace(/\n/g, ',').trim();
+      const parts = cleaned.split(',').map(s => s.trim()).filter(Boolean);
+      const bad = parts.find(p => !/^-?\d+$/.test(p));
+      if (bad) throw new Error(`Formato inválido: "${bad}". Deben ser SOLO enteros separados por coma.`);
+      return parts.map(p => Number(p));
+    }
+
+    function render() {
+      if (!seq.length) return;
+
+      const cur = seq[i];
+      const prev = (i > 0) ? seq[i - 1] : '—';
+      const next = (i < seq.length - 1) ? seq[i + 1] : '—';
+
+      els.current.textContent = String(cur);
+      els.prev.textContent = String(prev);
+      els.next.textContent = String(next);
+      els.total.textContent = String(seq.length);
+      els.progress.textContent = `Paso ${i + 1} / ${seq.length}`;
+
+      // Autoguardado
+      saveProgress();
+    }
+
+    function nextStep() {
+      if (!seq.length) return;
+      if (i < seq.length - 1) { i++; render(); }
+    }
+    function prevStep() {
+      if (!seq.length) return;
+      if (i > 0) { i--; render(); }
+    }
+    function resetToStart() {
+      if (!seq.length) return;
+      i = 0;
+      render();
+      setStatus('Reiniciado al paso 1.', true);
+    }
+
+    function goToStep(step1Based) {
+      if (!seq.length) return;
+      const step = Number(step1Based);
+      if (!Number.isFinite(step) || step < 1 || step > seq.length) {
+        setStatus(`Paso inválido. Debe ser entre 1 y ${seq.length}.`, false);
+        return;
+      }
+      i = step - 1;
+      render();
+      setStatus(`Saltaste al paso ${step}.`, true);
+    }
+
+    function saveProgress() {
+      try {
+        localStorage.setItem(STORAGE_KEY_SEQ, JSON.stringify(seq));
+        localStorage.setItem(STORAGE_KEY_IDX, String(i));
+      } catch (e) {}
+    }
+
+    function loadProgress() {
+      try {
+        const s = localStorage.getItem(STORAGE_KEY_SEQ);
+        const idx = localStorage.getItem(STORAGE_KEY_IDX);
+        if (!s) { setStatus('No hay guardado.', false); return; }
+        const parsed = JSON.parse(s);
+        if (!Array.isArray(parsed) || parsed.length === 0) { setStatus('Guardado inválido.', false); return; }
+        seq = parsed;
+        i = Math.max(0, Math.min(parsed.length - 1, Number(idx || 0)));
+        els.card.style.display = 'block';
+        render();
+        setStatus('Cargado desde el guardado del navegador.', true);
+      } catch (e) {
+        setStatus('No se pudo cargar el guardado.', false);
+      }
+    }
+
+    async function handleFile(file) {
+      const text = await file.text();
+      seq = parseSequence(text);
+      i = 0;
+      els.card.style.display = 'block';
+      render();
+      setStatus(`Archivo cargado: ${file.name} (${seq.length} pasos).`, true);
+    }
+
+    // Eventos
+    els.file.addEventListener('change', async (e) => {
+      const f = e.target.files?.[0];
+      if (!f) return;
+      try { await handleFile(f); } catch (err) { setStatus(err.message, false); }
+    });
+
+    els.gotoBtn.addEventListener('click', () => goToStep(els.gotoStep.value));
+    els.gotoStep.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') goToStep(els.gotoStep.value);
+    });
+
+    els.save.addEventListener('click', () => {
+      if (!seq.length) return setStatus('Primero cargá un .txt.', false);
+      saveProgress();
+      setStatus(`Guardado. Estás en el paso ${i + 1}.`, true);
+    });
+
+    els.load.addEventListener('click', () => loadProgress());
+
+    els.reset.addEventListener('click', () => resetToStart());
+
+    els.clear.addEventListener('click', () => {
+      localStorage.removeItem(STORAGE_KEY_SEQ);
+      localStorage.removeItem(STORAGE_KEY_IDX);
+      setStatus('Guardado borrado.', true);
+    });
+
+    // Click fuera de inputs/botones = siguiente
+    document.addEventListener('click', (e) => {
+      const tag = e.target?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'button') return;
+      nextStep();
+    });
+
+    // Teclado
+    document.addEventListener('keydown', (e) => {
+      if (!seq.length) return;
+
+      if (e.code === 'Space') { e.preventDefault(); nextStep(); }
+      else if (e.code === 'ArrowLeft' || e.code === 'Backspace') { e.preventDefault(); prevStep(); }
+      else if (e.key.toLowerCase() === 'r') { resetToStart(); }
+      else if (e.key.toLowerCase() === 'g') { els.gotoStep.focus(); }
+    });
+
+    // Drag & drop
+    els.drop.addEventListener('dragover', (e) => { e.preventDefault(); els.drop.classList.add('dragover'); });
+    els.drop.addEventListener('dragleave', () => els.drop.classList.remove('dragover'));
+    els.drop.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      els.drop.classList.remove('dragover');
+      const f = e.dataTransfer?.files?.[0];
+      if (!f) return;
+      try { await handleFile(f); } catch (err) { setStatus(err.message, false); }
+    });
+
+    // Autocargar guardado si existe
+    (function autoLoad() {
+      try {
+        const s = localStorage.getItem(STORAGE_KEY_SEQ);
+        if (s) loadProgress();
+      } catch {}
+    })();
+  </script>
+</body>
+</html>
