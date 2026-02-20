@@ -44,7 +44,10 @@
       -webkit-tap-highlight-color: transparent;
       user-select: none;
     }
-
+    #pass-count {
+      font-weight: 600;
+      opacity: 0.7;
+    }
   </style>
 </head>
 <body>
@@ -71,7 +74,7 @@
     <div id="drop" class="drop">O arrastrá y soltá tu <b>.txt</b> aquí</div>
 
     <div class="card" id="card" style="display:none;">
-      <div class="big" id="current">—</div>
+      <div class="big" id="current">—<span id="pass-count" style="font-size: 24px; vertical-align: super; margin-left: 5px;"></span></div>
       <div class="sub" id="progress">Cargá un .txt para comenzar</div>
 
       <div class="navBtns">
@@ -128,6 +131,7 @@
       total: document.getElementById('total'),
       prevBtn: document.getElementById('prevBtn'),
       nextBtn: document.getElementById('nextBtn'),
+      passCount: document.getElementById('pass-count'),
     };
 
     const STORAGE_KEY_SEQ = 'stringart_seq_v3';
@@ -170,7 +174,14 @@
         setStatus('No se pudo cargar el guardado.', false);
       }
     }
-
+    function getPassCount(currentIndex) {
+      const currentPin = seq[currentIndex];
+      let count = 0;
+      for (let n = 0; n <= currentIndex; n++) {
+        if (seq[n] === currentPin) count++;
+      }
+      return count;
+    }
     function render() {
       if (!seq.length) return;
 
@@ -179,6 +190,10 @@
       const next = (i < seq.length - 1) ? seq[i + 1] : '—';
 
       els.current.textContent = String(cur);
+            // Actualizar contador de pasadas
+      const count = getPassCount(i);
+      els.passCount.textContent = count > 1 ? `x${count}` : ''; 
+      // Se muestra x2, x3... si es la primera vez (x1) queda limpio para no saturar.
       // Color par/impar
       els.current.classList.remove('par', 'impar');
       
@@ -199,11 +214,15 @@
     function nextStep() {
       if (!seq.length) return;
       if (i < seq.length - 1) { i++; render(); }
+      // En nextStep, justo antes de cerrar la llave final o tras el render():
+      if (navigator.vibrate) navigator.vibrate(30);
     }
 
     function prevStep() {
       if (!seq.length) return;
       if (i > 0) { i--; render(); }
+            // En prevStep, justo antes de cerrar la llave final o tras el render():
+      if (navigator.vibrate) navigator.vibrate(30);
     }
 
     function resetToStart() {
