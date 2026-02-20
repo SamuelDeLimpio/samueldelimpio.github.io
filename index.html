@@ -172,58 +172,39 @@
     }
 
     function render() {
+      if (!seq.length) return;
 
-  const cur = steps[idx];
-  const prev = idx > 0 ? steps[idx - 1] : "-";
-  const next = idx < steps.length - 1 ? steps[idx + 1] : "-";
+      const cur = seq[i];
+      const prev = (i > 0) ? seq[i - 1] : '—';
+      const next = (i < seq.length - 1) ? seq[i + 1] : '—';
 
-  els.current.textContent = cur;
-  els.prev.textContent = prev;
-  els.next.textContent = next;
+      els.current.textContent = String(cur);
+      // Color par/impar
+      els.current.classList.remove('par', 'impar');
+      
+      if (cur % 2 === 0) {
+        els.current.classList.add('par');
+      } else {
+        els.current.classList.add('impar');
+      }
+      els.prev.textContent = String(prev);
+      els.next.textContent = String(next);
+      els.total.textContent = String(seq.length);
+      els.progress.textContent = `Paso ${i + 1} / ${seq.length}`;
 
-  // limpiar clases
-  ['par','impar'].forEach(c=>{
-    els.current.classList.remove(c);
-    els.prev.classList.remove(c);
-    els.next.classList.remove(c);
-  });
+      // Autoguardado
+      saveProgress();
+    }
 
-  // aplicar color actual
-  if(cur % 2 === 0) els.current.classList.add('par');
-  else els.current.classList.add('impar');
+    function nextStep() {
+      if (!seq.length) return;
+      if (i < seq.length - 1) { i++; render(); }
+    }
 
-  if(prev !== "-"){
-    if(prev % 2 === 0) els.prev.classList.add('par');
-    else els.prev.classList.add('impar');
-  }
-
-  if(next !== "-"){
-    if(next % 2 === 0) els.next.classList.add('par');
-    else els.next.classList.add('impar');
-  }
-
-}
-
-    function next(){
-  if(idx < steps.length-1){
-    idx++;
-    vibrate();
-    render();
-  }
-}
-
-    function prev(){
-  if(idx > 0){
-    idx--;
-    vibrate();
-    render();
-  }
-}
-    function vibrate(){
-  if(navigator.vibrate){
-    navigator.vibrate(10);
-  }
-}
+    function prevStep() {
+      if (!seq.length) return;
+      if (i > 0) { i--; render(); }
+    }
 
     function resetToStart() {
       if (!seq.length) return;
@@ -345,14 +326,6 @@ document.addEventListener('touchend', (e) => {
   }
   lastTouchEnd = now;
 }, { passive: false });
-
-    document.addEventListener("click", ()=>{
-
-  if(document.documentElement.requestFullscreen){
-    document.documentElement.requestFullscreen();
-  }
-
-}, {once:true});
 
   </script>
 </body>
