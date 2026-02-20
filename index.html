@@ -14,6 +14,8 @@
     button:active { transform: translateY(1px); }
     .card { margin-top: 16px; padding: 18px; border: 1px solid #eee; border-radius: 14px; background: #fafafa; }
     .big { font-size: 84px; font-weight: 800; line-height: 1; text-align: center; margin: 18px 0 6px; user-select: none; }
+    .big.par { color: blue; }
+    .big.impar { color: red; }
     .sub { text-align: center; font-size: 16px; color: #555; user-select: none; }
     .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 14px; }
     .mini { padding: 12px; border: 1px solid #eee; border-radius: 12px; background: #fff; }
@@ -170,31 +172,58 @@
     }
 
     function render() {
-      if (!seq.length) return;
 
-      const cur = seq[i];
-      const prev = (i > 0) ? seq[i - 1] : '—';
-      const next = (i < seq.length - 1) ? seq[i + 1] : '—';
+  const cur = steps[idx];
+  const prev = idx > 0 ? steps[idx - 1] : "-";
+  const next = idx < steps.length - 1 ? steps[idx + 1] : "-";
 
-      els.current.textContent = String(cur);
-      els.prev.textContent = String(prev);
-      els.next.textContent = String(next);
-      els.total.textContent = String(seq.length);
-      els.progress.textContent = `Paso ${i + 1} / ${seq.length}`;
+  els.current.textContent = cur;
+  els.prev.textContent = prev;
+  els.next.textContent = next;
 
-      // Autoguardado
-      saveProgress();
-    }
+  // limpiar clases
+  ['par','impar'].forEach(c=>{
+    els.current.classList.remove(c);
+    els.prev.classList.remove(c);
+    els.next.classList.remove(c);
+  });
 
-    function nextStep() {
-      if (!seq.length) return;
-      if (i < seq.length - 1) { i++; render(); }
-    }
+  // aplicar color actual
+  if(cur % 2 === 0) els.current.classList.add('par');
+  else els.current.classList.add('impar');
 
-    function prevStep() {
-      if (!seq.length) return;
-      if (i > 0) { i--; render(); }
-    }
+  if(prev !== "-"){
+    if(prev % 2 === 0) els.prev.classList.add('par');
+    else els.prev.classList.add('impar');
+  }
+
+  if(next !== "-"){
+    if(next % 2 === 0) els.next.classList.add('par');
+    else els.next.classList.add('impar');
+  }
+
+}
+
+    function next(){
+  if(idx < steps.length-1){
+    idx++;
+    vibrate();
+    render();
+  }
+}
+
+    function prev(){
+  if(idx > 0){
+    idx--;
+    vibrate();
+    render();
+  }
+}
+    function vibrate(){
+  if(navigator.vibrate){
+    navigator.vibrate(10);
+  }
+}
 
     function resetToStart() {
       if (!seq.length) return;
@@ -316,6 +345,14 @@ document.addEventListener('touchend', (e) => {
   }
   lastTouchEnd = now;
 }, { passive: false });
+
+    document.addEventListener("click", ()=>{
+
+  if(document.documentElement.requestFullscreen){
+    document.documentElement.requestFullscreen();
+  }
+
+}, {once:true});
 
   </script>
 </body>
