@@ -14,13 +14,9 @@
     button:active { transform: translateY(1px); }
     .card { margin-top: 16px; padding: 18px; border: 1px solid #eee; border-radius: 14px; background: #fafafa; }
     .big { font-size: 84px; font-weight: 800; line-height: 1; text-align: center; margin: 18px 0 6px; user-select: none; position: relative; }
-    
-    /* Colores por clase */
-    .par { color: blue !important; }
-    .impar { color: red !important; }
-
-    #pass-count { font-size: 28px; vertical-align: super; margin-left: 8px; opacity: 0.7; font-weight: 600; }
-    
+    .big.par { color: blue; }
+    .big.impar { color: red; }
+    #pass-count { font-size: 24px; vertical-align: super; margin-left: 5px; font-weight: 600; opacity: 0.7; }
     .sub { text-align: center; font-size: 16px; color: #555; user-select: none; }
     .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 14px; }
     .mini { padding: 12px; border: 1px solid #eee; border-radius: 12px; background: #fff; }
@@ -57,25 +53,22 @@
 
     <div class="top">
       <input id="file" type="file" accept=".txt,text/plain" />
-
       <div class="group">
         <span class="lbl">Ir al paso:</span>
         <input id="gotoStep" type="number" min="1" step="1" placeholder="Ej: 1200" />
         <button id="gotoBtn" type="button">Ir</button>
       </div>
-
       <button id="save" type="button">Guardar</button>
       <button id="load" type="button">Cargar</button>
       <button id="reset" type="button">Reiniciar a 1</button>
       <button id="clear" type="button">Borrar guardado</button>
-
       <span id="status" class="sub"></span>
     </div>
 
     <div id="drop" class="drop">O arrastrá y soltá tu <b>.txt</b> aquí</div>
 
     <div class="card" id="card" style="display:none;">
-      <div class="big" id="current"><span>—</span><span id="pass-count"></span></div>
+      <div class="big" id="current">—<span id="pass-count"></span></div>
       <div class="sub" id="progress">Cargá un .txt para comenzar</div>
 
       <div class="navBtns">
@@ -111,7 +104,7 @@
 
   <script>
     let seq = [];
-    let i = 0;
+    let i = 0; 
 
     const els = {
       file: document.getElementById('file'),
@@ -124,7 +117,7 @@
       status: document.getElementById('status'),
       card: document.getElementById('card'),
       drop: document.getElementById('drop'),
-      current: document.getElementById('current').querySelector('span'),
+      current: document.getElementById('current'),
       passCount: document.getElementById('pass-count'),
       progress: document.getElementById('progress'),
       prev: document.getElementById('prev'),
@@ -142,11 +135,43 @@
       els.status.className = good ? 'sub ok' : 'sub bad';
     }
 
+    // --- FUNCIONALIDADES NUEVAS ---
+    function playClickSound() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, ctx.currentTime);
+        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.1);
+      } catch(e) { console.log("Audio no disponible"); }
+    }
+
+    function getPassCount(currentIndex) {
+      const currentPin = seq[currentIndex];
+      let count = 0;
+      for (let n = 0; n <= currentIndex; n++) {
+        if (seq[n] === currentPin) count++;
+      }
+      return count;
+    }
+
+    function triggerFeedback() {
+      playClickSound();
+      if (navigator.vibrate) navigator.vibrate(30);
+    }
+    // ------------------------------
+
     function parseSequence(text) {
       const cleaned = text.replace(/\r/g, '').replace(/\n/g, ',').trim();
       const parts = cleaned.split(',').map(s => s.trim()).filter(Boolean);
       const bad = parts.find(p => !/^-?\d+$/.test(p));
-      if (bad) throw new Error(`Formato inválido: "${bad}". Deben ser SOLO enteros.`);
+      if (bad) throw new Error(`Formato inválido: "${bad}".`);
       return parts.map(p => Number(p));
     }
 
@@ -161,96 +186,59 @@
       try {
         const s = localStorage.getItem(STORAGE_KEY_SEQ);
         const idx = localStorage.getItem(STORAGE_KEY_IDX);
-        if (!s) { setStatus('No hay guardado.', false); return; }
-        const parsed = JSON.parse(s);
-        if (!Array.isArray(parsed) || parsed.length === 0) { setStatus('Guardado inválido.', false); return; }
-        seq = parsed;
-        i = Math.max(0, Math.min(parsed.length - 1, Number(idx || 0)));
+        if (!s) return;
+        seq = JSON.parse(s);
+        i = Math.max(0, Math.min(seq.length - 1, Number(idx || 0)));
         els.card.style.display = 'block';
         render();
-        setStatus('Cargado desde el navegador.', true);
-      } catch (e) {
-        setStatus('No se pudo cargar el guardado.', false);
-      }
-    }
-
-    // Funcionalidad 1: Contar pasadas hasta la posición actual
-    function getPassCount(currentIndex) {
-      const currentPin = seq[currentIndex];
-      let count = 0;
-      for (let n = 0; n <= currentIndex; n++) {
-        if (seq[n] === currentPin) count++;
-      }
-      return count;
-    }
-
-    function applyColor(element, value) {
-      element.classList.remove('par', 'impar');
-      if (typeof value === 'number') {
-        element.classList.add(value % 2 === 0 ? 'par' : 'impar');
-      }
+        setStatus('Progreso cargado.', true);
+      } catch (e) { setStatus('Error al cargar.', false); }
     }
 
     function render() {
       if (!seq.length) return;
 
       const cur = seq[i];
-      const prevVal = (i > 0) ? seq[i - 1] : null;
-      const nextVal = (i < seq.length - 1) ? seq[i + 1] : null;
+      const prev = (i > 0) ? seq[i - 1] : '—';
+      const next = (i < seq.length - 1) ? seq[i + 1] : '—';
 
-      // Actualizar número principal y color
-      els.current.textContent = String(cur);
-      applyColor(document.getElementById('current'), cur);
-
+      // Actualizar número actual sin borrar el span
+      els.current.childNodes[0].textContent = String(cur);
+      
       // Actualizar contador de pasadas
       const count = getPassCount(i);
       els.passCount.textContent = count > 1 ? `x${count}` : '';
 
-      // Actualizar Anterior
-      els.prev.textContent = prevVal !== null ? String(prevVal) : '—';
-      applyColor(els.prev, prevVal);
+      els.current.classList.remove('par', 'impar');
+      if (cur % 2 === 0) els.current.classList.add('par');
+      else els.current.classList.add('impar');
 
-      // Actualizar Siguiente
-      els.next.textContent = nextVal !== null ? String(nextVal) : '—';
-      applyColor(els.next, nextVal);
-
+      els.prev.textContent = String(prev);
+      els.next.textContent = String(next);
       els.total.textContent = String(seq.length);
       els.progress.textContent = `Paso ${i + 1} / ${seq.length}`;
 
       saveProgress();
     }
 
-    function vibrate() {
-      if (navigator.vibrate) navigator.vibrate(30);
-    }
-
     function nextStep() {
-      if (!seq.length) return;
-      if (i < seq.length - 1) { i++; render(); vibrate(); }
+      if (i < seq.length - 1) { i++; render(); triggerFeedback(); }
     }
 
     function prevStep() {
-      if (!seq.length) return;
-      if (i > 0) { i--; render(); vibrate(); }
+      if (i > 0) { i--; render(); triggerFeedback(); }
     }
 
     function resetToStart() {
       if (!seq.length) return;
-      i = 0;
-      render();
-      setStatus('Reiniciado al paso 1.', true);
+      i = 0; render();
+      setStatus('Reiniciado.', true);
     }
 
     function goToStep(step1Based) {
-      if (!seq.length) return;
       const step = Number(step1Based);
-      if (!Number.isFinite(step) || step < 1 || step > seq.length) {
-        setStatus(`Paso inválido (1 a ${seq.length}).`, false);
-        return;
-      }
-      i = step - 1;
-      render();
-      setStatus(`Saltaste al paso ${step}.`, true);
+      if (!Number.isFinite(step) || step < 1 || step > seq.length) return;
+      i = step - 1; render();
     }
 
     async function handleFile(file) {
@@ -259,32 +247,22 @@
       i = 0;
       els.card.style.display = 'block';
       render();
-      setStatus(`Archivo cargado: ${file.name} (${seq.length} pasos).`, true);
+      setStatus(`Archivo: ${file.name}`, true);
     }
 
     els.file.addEventListener('change', async (e) => {
       const f = e.target.files?.[0];
-      if (!f) return;
-      try { await handleFile(f); } catch (err) { setStatus(err.message, false); }
+      if (f) try { await handleFile(f); } catch (err) { setStatus(err.message, false); }
     });
 
     els.gotoBtn.addEventListener('click', () => goToStep(els.gotoStep.value));
-    els.gotoStep.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') goToStep(els.gotoStep.value);
-    });
-
-    els.save.addEventListener('click', () => {
-      if (!seq.length) return setStatus('Primero cargá un .txt.', false);
-      saveProgress();
-      setStatus(`Guardado en paso ${i + 1}.`, true);
-    });
-
+    els.save.addEventListener('click', () => { saveProgress(); setStatus('Guardado manual.', true); });
     els.load.addEventListener('click', () => loadProgress());
     els.reset.addEventListener('click', () => resetToStart());
     els.clear.addEventListener('click', () => {
       localStorage.removeItem(STORAGE_KEY_SEQ);
       localStorage.removeItem(STORAGE_KEY_IDX);
-      setStatus('Guardado borrado.', true);
+      setStatus('Memoria borrada.', true);
     });
 
     els.prevBtn.addEventListener('click', (e) => { e.stopPropagation(); prevStep(); });
@@ -299,8 +277,8 @@
       if (!seq.length) return;
       if (e.code === 'Space') { e.preventDefault(); nextStep(); }
       else if (e.code === 'ArrowLeft' || e.code === 'Backspace') { e.preventDefault(); prevStep(); }
-      else if (e.key.toLowerCase() === 'r') { resetToStart(); }
-      else if (e.key.toLowerCase() === 'g') { els.gotoStep.focus(); }
+      else if (e.key.toLowerCase() === 'r') resetToStart();
+      else if (e.key.toLowerCase() === 'g') els.gotoStep.focus();
     });
 
     els.drop.addEventListener('dragover', (e) => { e.preventDefault(); els.drop.classList.add('dragover'); });
@@ -312,18 +290,19 @@
       if (f) try { await handleFile(f); } catch (err) { setStatus(err.message, false); }
     });
 
-    (function autoLoad() {
-      try { if (localStorage.getItem(STORAGE_KEY_SEQ)) loadProgress(); } catch {}
-    })();
+    (function autoLoad() { loadProgress(); })();
 
     let lastTouchEnd = 0;
     document.addEventListener('touchend', (e) => {
-      if (['button', 'input', 'a'].includes(e.target.tagName.toLowerCase())) return;
+      const tag = e.target?.tagName?.toLowerCase();
+      if (['button', 'input', 'a'].includes(tag)) {
+        lastTouchEnd = Date.now();
+        return;
+      }
       const now = Date.now();
       if (now - lastTouchEnd <= 300) e.preventDefault();
       lastTouchEnd = now;
     }, { passive: false });
-
   </script>
 </body>
 </html>
