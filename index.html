@@ -13,9 +13,14 @@
     button { padding: 10px 14px; border: 1px solid #ddd; border-radius: 10px; background: #fff; cursor: pointer; }
     button:active { transform: translateY(1px); }
     .card { margin-top: 16px; padding: 18px; border: 1px solid #eee; border-radius: 14px; background: #fafafa; }
-    .big { font-size: 84px; font-weight: 800; line-height: 1; text-align: center; margin: 18px 0 6px; user-select: none; }
-    .big.par { color: blue; }
-    .big.impar { color: red; }
+    .big { font-size: 84px; font-weight: 800; line-height: 1; text-align: center; margin: 18px 0 6px; user-select: none; position: relative; }
+    
+    /* Colores por clase */
+    .par { color: blue !important; }
+    .impar { color: red !important; }
+
+    #pass-count { font-size: 28px; vertical-align: super; margin-left: 8px; opacity: 0.7; font-weight: 600; }
+    
     .sub { text-align: center; font-size: 16px; color: #555; user-select: none; }
     .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 14px; }
     .mini { padding: 12px; border: 1px solid #eee; border-radius: 12px; background: #fff; }
@@ -34,7 +39,7 @@
     .lbl { font-size: 14px; color:#666; }
     .navBtns { display:flex; gap:10px; justify-content:center; margin-top: 10px; flex-wrap:wrap; }
     .navBtns button { min-width: 140px; }
-    /* Evita zoom/selección rara en iOS */
+    
     html, body {
       touch-action: manipulation;
       -webkit-text-size-adjust: 100%;
@@ -43,10 +48,6 @@
     button, .big, .card {
       -webkit-tap-highlight-color: transparent;
       user-select: none;
-    }
-    #pass-count {
-      font-weight: 600;
-      opacity: 0.7;
     }
   </style>
 </head>
@@ -74,7 +75,7 @@
     <div id="drop" class="drop">O arrastrá y soltá tu <b>.txt</b> aquí</div>
 
     <div class="card" id="card" style="display:none;">
-      <div class="big" id="current">—<span id="pass-count" style="font-size: 24px; vertical-align: super; margin-left: 5px;"></span></div>
+      <div class="big" id="current"><span>—</span><span id="pass-count"></span></div>
       <div class="sub" id="progress">Cargá un .txt para comenzar</div>
 
       <div class="navBtns">
@@ -109,9 +110,8 @@
   </div>
 
   <script>
-    // Estado
     let seq = [];
-    let i = 0; // índice actual (0-based)
+    let i = 0;
 
     const els = {
       file: document.getElementById('file'),
@@ -124,14 +124,14 @@
       status: document.getElementById('status'),
       card: document.getElementById('card'),
       drop: document.getElementById('drop'),
-      current: document.getElementById('current'),
+      current: document.getElementById('current').querySelector('span'),
+      passCount: document.getElementById('pass-count'),
       progress: document.getElementById('progress'),
       prev: document.getElementById('prev'),
       next: document.getElementById('next'),
       total: document.getElementById('total'),
       prevBtn: document.getElementById('prevBtn'),
       nextBtn: document.getElementById('nextBtn'),
-      passCount: document.getElementById('pass-count'),
     };
 
     const STORAGE_KEY_SEQ = 'stringart_seq_v3';
@@ -143,11 +143,10 @@
     }
 
     function parseSequence(text) {
-      // Acepta números separados por coma y/o salto de línea
       const cleaned = text.replace(/\r/g, '').replace(/\n/g, ',').trim();
       const parts = cleaned.split(',').map(s => s.trim()).filter(Boolean);
       const bad = parts.find(p => !/^-?\d+$/.test(p));
-      if (bad) throw new Error(`Formato inválido: "${bad}". Deben ser SOLO enteros separados por coma.`);
+      if (bad) throw new Error(`Formato inválido: "${bad}". Deben ser SOLO enteros.`);
       return parts.map(p => Number(p));
     }
 
@@ -169,11 +168,13 @@
         i = Math.max(0, Math.min(parsed.length - 1, Number(idx || 0)));
         els.card.style.display = 'block';
         render();
-        setStatus('Cargado desde el guardado del navegador.', true);
+        setStatus('Cargado desde el navegador.', true);
       } catch (e) {
         setStatus('No se pudo cargar el guardado.', false);
       }
     }
+
+    // Funcionalidad 1: Contar pasadas hasta la posición actual
     function getPassCount(currentIndex) {
       const currentPin = seq[currentIndex];
       let count = 0;
@@ -182,47 +183,55 @@
       }
       return count;
     }
+
+    function applyColor(element, value) {
+      element.classList.remove('par', 'impar');
+      if (typeof value === 'number') {
+        element.classList.add(value % 2 === 0 ? 'par' : 'impar');
+      }
+    }
+
     function render() {
       if (!seq.length) return;
 
       const cur = seq[i];
-      const prev = (i > 0) ? seq[i - 1] : '—';
-      const next = (i < seq.length - 1) ? seq[i + 1] : '—';
+      const prevVal = (i > 0) ? seq[i - 1] : null;
+      const nextVal = (i < seq.length - 1) ? seq[i + 1] : null;
 
+      // Actualizar número principal y color
       els.current.textContent = String(cur);
-            // Actualizar contador de pasadas
+      applyColor(document.getElementById('current'), cur);
+
+      // Actualizar contador de pasadas
       const count = getPassCount(i);
-      els.passCount.textContent = count > 1 ? `x${count}` : ''; 
-      // Se muestra x2, x3... si es la primera vez (x1) queda limpio para no saturar.
-      // Color par/impar
-      els.current.classList.remove('par', 'impar');
-      
-      if (cur % 2 === 0) {
-        els.current.classList.add('par');
-      } else {
-        els.current.classList.add('impar');
-      }
-      els.prev.textContent = String(prev);
-      els.next.textContent = String(next);
+      els.passCount.textContent = count > 1 ? `x${count}` : '';
+
+      // Actualizar Anterior
+      els.prev.textContent = prevVal !== null ? String(prevVal) : '—';
+      applyColor(els.prev, prevVal);
+
+      // Actualizar Siguiente
+      els.next.textContent = nextVal !== null ? String(nextVal) : '—';
+      applyColor(els.next, nextVal);
+
       els.total.textContent = String(seq.length);
       els.progress.textContent = `Paso ${i + 1} / ${seq.length}`;
 
-      // Autoguardado
       saveProgress();
+    }
+
+    function vibrate() {
+      if (navigator.vibrate) navigator.vibrate(30);
     }
 
     function nextStep() {
       if (!seq.length) return;
-      if (i < seq.length - 1) { i++; render(); }
-      // En nextStep, justo antes de cerrar la llave final o tras el render():
-      if (navigator.vibrate) navigator.vibrate(30);
+      if (i < seq.length - 1) { i++; render(); vibrate(); }
     }
 
     function prevStep() {
       if (!seq.length) return;
-      if (i > 0) { i--; render(); }
-            // En prevStep, justo antes de cerrar la llave final o tras el render():
-      if (navigator.vibrate) navigator.vibrate(30);
+      if (i > 0) { i--; render(); vibrate(); }
     }
 
     function resetToStart() {
@@ -236,7 +245,7 @@
       if (!seq.length) return;
       const step = Number(step1Based);
       if (!Number.isFinite(step) || step < 1 || step > seq.length) {
-        setStatus(`Paso inválido. Debe ser entre 1 y ${seq.length}.`, false);
+        setStatus(`Paso inválido (1 a ${seq.length}).`, false);
         return;
       }
       i = step - 1;
@@ -253,13 +262,6 @@
       setStatus(`Archivo cargado: ${file.name} (${seq.length} pasos).`, true);
     }
 
-    function isInteractiveTarget(t) {
-      const tag = t?.tagName?.toLowerCase();
-      if (tag === 'input' || tag === 'button' || tag === 'a' || tag === 'select' || tag === 'textarea') return true;
-      return false;
-    }
-
-    // === Eventos ===
     els.file.addEventListener('change', async (e) => {
       const f = e.target.files?.[0];
       if (!f) return;
@@ -274,77 +276,53 @@
     els.save.addEventListener('click', () => {
       if (!seq.length) return setStatus('Primero cargá un .txt.', false);
       saveProgress();
-      setStatus(`Guardado. Estás en el paso ${i + 1}.`, true);
+      setStatus(`Guardado en paso ${i + 1}.`, true);
     });
 
     els.load.addEventListener('click', () => loadProgress());
-
     els.reset.addEventListener('click', () => resetToStart());
-
     els.clear.addEventListener('click', () => {
       localStorage.removeItem(STORAGE_KEY_SEQ);
       localStorage.removeItem(STORAGE_KEY_IDX);
       setStatus('Guardado borrado.', true);
     });
 
-    // Botones táctiles
     els.prevBtn.addEventListener('click', (e) => { e.stopPropagation(); prevStep(); });
     els.nextBtn.addEventListener('click', (e) => { e.stopPropagation(); nextStep(); });
 
-    // Click fuera de inputs/botones = siguiente
     document.addEventListener('click', (e) => {
-      const tag = e.target?.tagName?.toLowerCase();
-      if (tag === 'input' || tag === 'button') return;
+      if (['input', 'button', 'kbd'].includes(e.target.tagName.toLowerCase())) return;
       nextStep();
     });
 
-    // Teclado
     document.addEventListener('keydown', (e) => {
       if (!seq.length) return;
-
       if (e.code === 'Space') { e.preventDefault(); nextStep(); }
       else if (e.code === 'ArrowLeft' || e.code === 'Backspace') { e.preventDefault(); prevStep(); }
       else if (e.key.toLowerCase() === 'r') { resetToStart(); }
       else if (e.key.toLowerCase() === 'g') { els.gotoStep.focus(); }
     });
 
-    // Drag & drop
     els.drop.addEventListener('dragover', (e) => { e.preventDefault(); els.drop.classList.add('dragover'); });
     els.drop.addEventListener('dragleave', () => els.drop.classList.remove('dragover'));
     els.drop.addEventListener('drop', async (e) => {
       e.preventDefault();
       els.drop.classList.remove('dragover');
       const f = e.dataTransfer?.files?.[0];
-      if (!f) return;
-      try { await handleFile(f); } catch (err) { setStatus(err.message, false); }
+      if (f) try { await handleFile(f); } catch (err) { setStatus(err.message, false); }
     });
 
-    // Autocargar guardado si existe
     (function autoLoad() {
-      try {
-        const s = localStorage.getItem(STORAGE_KEY_SEQ);
-        if (s) loadProgress();
-      } catch {}
+      try { if (localStorage.getItem(STORAGE_KEY_SEQ)) loadProgress(); } catch {}
     })();
 
-    // Evita doble-tap zoom SOLO fuera de controles (no afecta botones)
-let lastTouchEnd = 0;
-document.addEventListener('touchend', (e) => {
-  const target = e.target;
-  const tag = target?.tagName?.toLowerCase();
-
-  // Si tocás un control, no bloqueamos nada
-  if (tag === 'button' || tag === 'input' || tag === 'a' || tag === 'select' || tag === 'textarea') {
-    lastTouchEnd = Date.now();
-    return;
-  }
-
-  const now = Date.now();
-  if (now - lastTouchEnd <= 300) {
-    e.preventDefault();
-  }
-  lastTouchEnd = now;
-}, { passive: false });
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', (e) => {
+      if (['button', 'input', 'a'].includes(e.target.tagName.toLowerCase())) return;
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) e.preventDefault();
+      lastTouchEnd = now;
+    }, { passive: false });
 
   </script>
 </body>
