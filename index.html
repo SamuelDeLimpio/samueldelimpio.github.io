@@ -5,46 +5,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>String Art – Secuencia de pines</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; padding: 24px; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; padding: 24px; background: #f0f2f5; }
     .wrap { max-width: 980px; margin: 0 auto; }
     .top { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-    input[type="file"] { padding: 8px; border: 1px solid #ddd; border-radius: 8px; }
+    input[type="file"] { padding: 8px; border: 1px solid #ddd; border-radius: 8px; background: white; }
     input[type="number"] { padding: 10px 12px; border: 1px solid #ddd; border-radius: 10px; width: 150px; }
-    button { padding: 10px 14px; border: 1px solid #ddd; border-radius: 10px; background: #fff; cursor: pointer; }
-    button:active { transform: translateY(1px); }
-    .card { margin-top: 16px; padding: 18px; border: 1px solid #eee; border-radius: 14px; background: #fafafa; }
-    .big { font-size: 84px; font-weight: 800; line-height: 1; text-align: center; margin: 18px 0 6px; user-select: none; position: relative; }
+    button { padding: 10px 14px; border: 1px solid #ddd; border-radius: 10px; background: #fff; cursor: pointer; font-weight: 500; }
+    button:active { transform: translateY(1px); background: #eee; }
+    
+    .card { margin-top: 16px; padding: 18px; border: 1px solid #eee; border-radius: 14px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    .big { font-size: 84px; font-weight: 800; line-height: 1; text-align: center; margin: 18px 0 6px; user-select: none; }
     .big.par { color: blue; }
     .big.impar { color: red; }
-    #pass-count { font-size: 24px; vertical-align: super; margin-left: 5px; font-weight: 600; opacity: 0.7; }
+    #pass-count { font-size: 26px; vertical-align: super; margin-left: 8px; color: #666; font-weight: 600; }
+    
     .sub { text-align: center; font-size: 16px; color: #555; user-select: none; }
     .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 14px; }
-    .mini { padding: 12px; border: 1px solid #eee; border-radius: 12px; background: #fff; }
+    .mini { padding: 12px; border: 1px solid #eee; border-radius: 12px; background: #fafafa; }
     .mini h3 { margin: 0 0 8px; font-size: 14px; color: #666; font-weight: 650; }
     .mini .val { font-size: 26px; font-weight: 750; }
+    
+    .navBtns { display:flex; gap:10px; justify-content:center; margin: 20px 0; }
+    .navBtns button { min-width: 140px; height: 60px; font-size: 18px; }
+
+    /* Buscador de clavos */
+    .search-box { margin-top: 30px; padding: 20px; background: #fff; border-radius: 14px; border: 1px solid #ddd; }
+    .search-box h2 { margin-top: 0; font-size: 20px; }
+    .search-results { margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px; }
+    .connection-list { list-style: none; padding: 0; font-family: monospace; }
+    .connection-list li { padding: 5px 0; border-bottom: 1px solid #f9f9f9; }
+    .highlight { font-weight: bold; color: #000; padding: 0 4px; border-radius: 4px; background: #eee; }
+
     .hint { margin-top: 12px; color: #666; font-size: 14px; text-align:center; }
-    kbd { padding: 2px 7px; border: 1px solid #ddd; border-bottom-width: 2px; border-radius: 6px; background: #fff; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
     .ok { color: #0a7; font-weight: 650; }
     .bad { color: #c33; font-weight: 650; }
-    .drop {
-      margin-top: 12px; padding: 12px; border: 2px dashed #ddd; border-radius: 12px;
-      text-align: center; color: #777; background: #fff;
-    }
-    .drop.dragover { border-color: #999; color: #333; background: #f3f3f3; }
-    .group { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    .lbl { font-size: 14px; color:#666; }
-    .navBtns { display:flex; gap:10px; justify-content:center; margin-top: 10px; flex-wrap:wrap; }
-    .navBtns button { min-width: 140px; }
-    
-    html, body {
-      touch-action: manipulation;
-      -webkit-text-size-adjust: 100%;
-    }
-    
-    button, .big, .card {
-      -webkit-tap-highlight-color: transparent;
-      user-select: none;
-    }
+
+    html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
   </style>
 </head>
 <body>
@@ -54,69 +50,60 @@
     <div class="top">
       <input id="file" type="file" accept=".txt,text/plain" />
       <div class="group">
-        <span class="lbl">Ir al paso:</span>
-        <input id="gotoStep" type="number" min="1" step="1" placeholder="Ej: 1200" />
+        <input id="gotoStep" type="number" min="1" placeholder="Ir al paso..." />
         <button id="gotoBtn" type="button">Ir</button>
       </div>
-      <button id="save" type="button">Guardar</button>
-      <button id="load" type="button">Cargar</button>
-      <button id="reset" type="button">Reiniciar a 1</button>
-      <button id="clear" type="button">Borrar guardado</button>
+      <button id="reset" type="button">Reiniciar</button>
+      <button id="clear" type="button">Borrar todo</button>
       <span id="status" class="sub"></span>
     </div>
 
-    <div id="drop" class="drop">O arrastrá y soltá tu <b>.txt</b> aquí</div>
-
     <div class="card" id="card" style="display:none;">
       <div class="big" id="current">—<span id="pass-count"></span></div>
-      <div class="sub" id="progress">Cargá un .txt para comenzar</div>
+      <div class="sub" id="progress">Cargá un archivo para empezar</div>
 
       <div class="navBtns">
-        <button id="prevBtn" type="button">◀︎ Anterior</button>
-        <button id="nextBtn" type="button">Siguiente ▶︎</button>
+        <button id="prevBtn" type="button" style="background: #fff0f0;">◀ Anterior (Grave)</button>
+        <button id="nextBtn" type="button" style="background: #f0f9ff;">Siguiente ▶ (Agudo)</button>
       </div>
 
       <div class="row">
-        <div class="mini">
-          <h3>Anterior</h3>
-          <div class="val" id="prev">—</div>
-        </div>
-        <div class="mini">
-          <h3>Siguiente</h3>
-          <div class="val" id="next">—</div>
-        </div>
-        <div class="mini">
-          <h3>Total pasos</h3>
-          <div class="val" id="total">—</div>
-        </div>
+        <div class="mini"><h3>Anterior</h3><div class="val" id="prev">—</div></div>
+        <div class="mini"><h3>Siguiente</h3><div class="val" id="next">—</div></div>
+        <div class="mini"><h3>Total Pasos</h3><div class="val" id="total">—</div></div>
       </div>
+    </div>
 
-      <div class="hint">
-        Controles: <kbd>Click</kbd> o <kbd>Espacio</kbd> = siguiente ·
-        <kbd>←</kbd> o <kbd>Backspace</kbd> = anterior ·
-        <kbd>R</kbd> = reiniciar ·
-        <kbd>G</kbd> = enfocar “Ir al paso” ·
-        <br/>
-        En móvil: <b>tap izquierda</b> = anterior · <b>tap derecha</b> = siguiente
+    <div class="search-box" id="searchSection" style="display:none;">
+      <h2>🔍 Buscador de Clavo</h2>
+      <div class="group">
+        <input id="pinSearchInput" type="number" placeholder="Ej: 80" />
+        <button id="searchBtn" type="button">Consultar Clavo</button>
       </div>
+      <div id="searchResults" class="search-results">
+        <p>Ingresa un número de clavo para ver su historial.</p>
+      </div>
+    </div>
+
+    <div class="hint">
+      Taps laterales en móvil también funcionan.<br>
+      <b>Siguiente:</b> Clic agudo | <b>Anterior:</b> Tono grave
     </div>
   </div>
 
   <script>
     let seq = [];
-    let i = 0; 
+    let i = 0;
+    let audioCtx = null;
 
     const els = {
       file: document.getElementById('file'),
       gotoStep: document.getElementById('gotoStep'),
       gotoBtn: document.getElementById('gotoBtn'),
-      save: document.getElementById('save'),
-      load: document.getElementById('load'),
       reset: document.getElementById('reset'),
       clear: document.getElementById('clear'),
       status: document.getElementById('status'),
       card: document.getElementById('card'),
-      drop: document.getElementById('drop'),
       current: document.getElementById('current'),
       passCount: document.getElementById('pass-count'),
       progress: document.getElementById('progress'),
@@ -125,184 +112,135 @@
       total: document.getElementById('total'),
       prevBtn: document.getElementById('prevBtn'),
       nextBtn: document.getElementById('nextBtn'),
+      pinSearchInput: document.getElementById('pinSearchInput'),
+      searchBtn: document.getElementById('searchBtn'),
+      searchResults: document.getElementById('searchResults'),
+      searchSection: document.getElementById('searchSection')
     };
 
-    const STORAGE_KEY_SEQ = 'stringart_seq_v3';
-    const STORAGE_KEY_IDX = 'stringart_idx_v3';
+    const STORAGE_KEY_SEQ = 'stringart_seq_v4';
+    const STORAGE_KEY_IDX = 'stringart_idx_v4';
 
-    function setStatus(msg, good=true) {
-      els.status.textContent = msg;
-      els.status.className = good ? 'sub ok' : 'sub bad';
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
     }
 
-    // --- FUNCIONALIDADES NUEVAS ---
-    function playClickSound() {
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(800, ctx.currentTime);
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.1);
-      } catch(e) { console.log("Audio no disponible"); }
+    function playSound(type) {
+      initAudio();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      
+      if (type === 'next') {
+        osc.frequency.setValueAtTime(850, audioCtx.currentTime); // Agudo
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.stop(audioCtx.currentTime + 0.1);
+      } else {
+        osc.frequency.setValueAtTime(250, audioCtx.currentTime); // Grave
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+        osc.stop(audioCtx.currentTime + 0.3);
+      }
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
     }
 
-    function getPassCount(currentIndex) {
-      const currentPin = seq[currentIndex];
+    function getPassCount(targetIdx) {
+      const pin = seq[targetIdx];
       let count = 0;
-      for (let n = 0; n <= currentIndex; n++) {
-        if (seq[n] === currentPin) count++;
+      for (let n = 0; n <= targetIdx; n++) {
+        if (seq[n] === pin) count++;
       }
       return count;
     }
 
-    function triggerFeedback() {
-      playClickSound();
-      if (navigator.vibrate) navigator.vibrate(30);
-    }
-    // ------------------------------
+    function searchPinInfo() {
+      const targetPin = Number(els.pinSearchInput.value);
+      if (isNaN(targetPin) || !seq.length) return;
 
-    function parseSequence(text) {
-      const cleaned = text.replace(/\r/g, '').replace(/\n/g, ',').trim();
-      const parts = cleaned.split(',').map(s => s.trim()).filter(Boolean);
-      const bad = parts.find(p => !/^-?\d+$/.test(p));
-      if (bad) throw new Error(`Formato inválido: "${bad}".`);
-      return parts.map(p => Number(p));
-    }
+      let historyHtml = `<h3>Clavo ${targetPin}</h3>`;
+      let totalInSeq = 0;
+      let countUntilNow = 0;
+      let connections = [];
 
-    function saveProgress() {
-      try {
-        localStorage.setItem(STORAGE_KEY_SEQ, JSON.stringify(seq));
-        localStorage.setItem(STORAGE_KEY_IDX, String(i));
-      } catch (e) {}
-    }
+      seq.forEach((pin, idx) => {
+        if (pin === targetPin) {
+          totalInSeq++;
+          if (idx <= i) countUntilNow++;
+          
+          const from = idx > 0 ? seq[idx-1] : "Inicio";
+          const to = idx < seq.length - 1 ? seq[idx+1] : "Fin";
+          const isPassed = idx <= i ? "✅" : "⏳";
+          
+          connections.push(`<li>${isPassed} Pasada ${totalInSeq}: ${from} ➔ <span class="highlight">${targetPin}</span> ➔ ${to} <small>(Paso ${idx+1})</small></li>`);
+        }
+      });
 
-    function loadProgress() {
-      try {
-        const s = localStorage.getItem(STORAGE_KEY_SEQ);
-        const idx = localStorage.getItem(STORAGE_KEY_IDX);
-        if (!s) return;
-        seq = JSON.parse(s);
-        i = Math.max(0, Math.min(seq.length - 1, Number(idx || 0)));
-        els.card.style.display = 'block';
-        render();
-        setStatus('Progreso cargado.', true);
-      } catch (e) { setStatus('Error al cargar.', false); }
+      historyHtml += `<p><b>Estado actual:</b> Has realizado ${countUntilNow} de ${totalInSeq} pasadas totales.</p>`;
+      historyHtml += `<ul class="connection-list">${connections.join('')}</ul>`;
+      
+      els.searchResults.innerHTML = historyHtml;
     }
 
     function render() {
       if (!seq.length) return;
-
       const cur = seq[i];
-      const prev = (i > 0) ? seq[i - 1] : '—';
-      const next = (i < seq.length - 1) ? seq[i + 1] : '—';
-
-      // Actualizar número actual sin borrar el span
       els.current.childNodes[0].textContent = String(cur);
       
-      // Actualizar contador de pasadas
       const count = getPassCount(i);
       els.passCount.textContent = count > 1 ? `x${count}` : '';
 
-      els.current.classList.remove('par', 'impar');
-      if (cur % 2 === 0) els.current.classList.add('par');
-      else els.current.classList.add('impar');
-
-      els.prev.textContent = String(prev);
-      els.next.textContent = String(next);
-      els.total.textContent = String(seq.length);
-      els.progress.textContent = `Paso ${i + 1} / ${seq.length}`;
-
-      saveProgress();
-    }
-
-    function nextStep() {
-      if (i < seq.length - 1) { i++; render(); triggerFeedback(); }
-    }
-
-    function prevStep() {
-      if (i > 0) { i--; render(); triggerFeedback(); }
-    }
-
-    function resetToStart() {
-      if (!seq.length) return;
-      i = 0; render();
-      setStatus('Reiniciado.', true);
-    }
-
-    function goToStep(step1Based) {
-      const step = Number(step1Based);
-      if (!Number.isFinite(step) || step < 1 || step > seq.length) return;
-      i = step - 1; render();
+      els.current.className = `big ${cur % 2 === 0 ? 'par' : 'impar'}`;
+      els.prev.textContent = i > 0 ? seq[i - 1] : '—';
+      els.next.textContent = i < seq.length - 1 ? seq[i + 1] : '—';
+      els.total.textContent = seq.length;
+      els.progress.textContent = `Paso ${i + 1} de ${seq.length}`;
+      
+      localStorage.setItem(STORAGE_KEY_IDX, i);
     }
 
     async function handleFile(file) {
       const text = await file.text();
-      seq = parseSequence(text);
+      seq = text.replace(/\r/g, '').replace(/\n/g, ',').split(',').map(s => s.trim()).filter(Boolean).map(Number);
       i = 0;
       els.card.style.display = 'block';
+      els.searchSection.style.display = 'block';
+      localStorage.setItem(STORAGE_KEY_SEQ, JSON.stringify(seq));
       render();
-      setStatus(`Archivo: ${file.name}`, true);
     }
 
-    els.file.addEventListener('change', async (e) => {
-      const f = e.target.files?.[0];
-      if (f) try { await handleFile(f); } catch (err) { setStatus(err.message, false); }
+    // Eventos
+    els.nextBtn.addEventListener('click', () => { if(i < seq.length-1){ i++; render(); playSound('next'); } });
+    els.prevBtn.addEventListener('click', () => { if(i > 0){ i--; render(); playSound('prev'); } });
+    els.searchBtn.addEventListener('click', searchPinInfo);
+    els.gotoBtn.addEventListener('click', () => {
+      const val = parseInt(els.gotoStep.value);
+      if(val >= 1 && val <= seq.length) { i = val - 1; render(); initAudio(); }
     });
 
-    els.gotoBtn.addEventListener('click', () => goToStep(els.gotoStep.value));
-    els.save.addEventListener('click', () => { saveProgress(); setStatus('Guardado manual.', true); });
-    els.load.addEventListener('click', () => loadProgress());
-    els.reset.addEventListener('click', () => resetToStart());
-    els.clear.addEventListener('click', () => {
-      localStorage.removeItem(STORAGE_KEY_SEQ);
-      localStorage.removeItem(STORAGE_KEY_IDX);
-      setStatus('Memoria borrada.', true);
-    });
+    els.file.addEventListener('change', e => { if(e.target.files[0]) handleFile(e.target.files[0]); });
+    els.reset.addEventListener('click', () => { i = 0; render(); });
+    els.clear.addEventListener('click', () => { localStorage.clear(); location.reload(); });
 
-    els.prevBtn.addEventListener('click', (e) => { e.stopPropagation(); prevStep(); });
-    els.nextBtn.addEventListener('click', (e) => { e.stopPropagation(); nextStep(); });
-
-    document.addEventListener('click', (e) => {
-      if (['input', 'button', 'kbd'].includes(e.target.tagName.toLowerCase())) return;
-      nextStep();
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (!seq.length) return;
-      if (e.code === 'Space') { e.preventDefault(); nextStep(); }
-      else if (e.code === 'ArrowLeft' || e.code === 'Backspace') { e.preventDefault(); prevStep(); }
-      else if (e.key.toLowerCase() === 'r') resetToStart();
-      else if (e.key.toLowerCase() === 'g') els.gotoStep.focus();
-    });
-
-    els.drop.addEventListener('dragover', (e) => { e.preventDefault(); els.drop.classList.add('dragover'); });
-    els.drop.addEventListener('dragleave', () => els.drop.classList.remove('dragover'));
-    els.drop.addEventListener('drop', async (e) => {
-      e.preventDefault();
-      els.drop.classList.remove('dragover');
-      const f = e.dataTransfer?.files?.[0];
-      if (f) try { await handleFile(f); } catch (err) { setStatus(err.message, false); }
-    });
-
-    (function autoLoad() { loadProgress(); })();
-
-    let lastTouchEnd = 0;
-    document.addEventListener('touchend', (e) => {
-      const tag = e.target?.tagName?.toLowerCase();
-      if (['button', 'input', 'a'].includes(tag)) {
-        lastTouchEnd = Date.now();
-        return;
+    // Carga inicial
+    (function init() {
+      const s = localStorage.getItem(STORAGE_KEY_SEQ);
+      const idx = localStorage.getItem(STORAGE_KEY_IDX);
+      if (s) {
+        seq = JSON.parse(s);
+        i = parseInt(idx) || 0;
+        els.card.style.display = 'block';
+        els.searchSection.style.display = 'block';
+        render();
       }
-      const now = Date.now();
-      if (now - lastTouchEnd <= 300) e.preventDefault();
-      lastTouchEnd = now;
-    }, { passive: false });
+    })();
   </script>
 </body>
 </html>
