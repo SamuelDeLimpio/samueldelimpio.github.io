@@ -3,30 +3,33 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>String Art – Secuencia de pines</title>
+  <title>String Art Pro – Secuencia de pines</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; padding: 24px; background: #f0f2f5; }
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 24px; background: #f0f2f5; }
     .wrap { max-width: 980px; margin: 0 auto; }
     .top { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
     input[type="file"] { padding: 8px; border: 1px solid #ddd; border-radius: 8px; background: white; }
     input[type="number"] { padding: 10px 12px; border: 1px solid #ddd; border-radius: 10px; width: 150px; }
-    button { padding: 10px 14px; border: 1px solid #ddd; border-radius: 10px; background: #fff; cursor: pointer; font-weight: 500; }
+    button { padding: 10px 14px; border: 1px solid #ddd; border-radius: 10px; background: #fff; cursor: pointer; font-weight: 500; transition: all 0.2s; }
     button:active { transform: translateY(1px); background: #eee; }
     
     .card { margin-top: 16px; padding: 18px; border: 1px solid #eee; border-radius: 14px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
     .big { font-size: 84px; font-weight: 800; line-height: 1; text-align: center; margin: 18px 0 6px; user-select: none; }
-    .big.par { color: blue; }
-    .big.impar { color: red; }
-    #pass-count { font-size: 26px; vertical-align: super; margin-left: 8px; color: #666; font-weight: 600; }
     
+    /* Colores dinámicos */
+    .par { color: #007bff; }
+    .impar { color: #dc3545; }
+
+    #pass-count { font-size: 26px; vertical-align: super; margin-left: 8px; color: #666; font-weight: 600; }
     .sub { text-align: center; font-size: 16px; color: #555; user-select: none; }
+    
     .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 14px; }
-    .mini { padding: 12px; border: 1px solid #eee; border-radius: 12px; background: #fafafa; }
+    .mini { padding: 12px; border: 1px solid #eee; border-radius: 12px; background: #fafafa; text-align: center; }
     .mini h3 { margin: 0 0 8px; font-size: 14px; color: #666; font-weight: 650; }
     .mini .val { font-size: 26px; font-weight: 750; }
     
     .navBtns { display:flex; gap:10px; justify-content:center; margin: 20px 0; }
-    .navBtns button { min-width: 140px; height: 70px; font-size: 18px; border: 2px solid #ddd; }
+    .navBtns button { min-width: 140px; height: 80px; font-size: 18px; border: 2px solid #ddd; flex: 1; }
 
     .search-box { margin-top: 30px; padding: 20px; background: #fff; border-radius: 14px; border: 1px solid #ddd; }
     .search-box h2 { margin-top: 0; font-size: 20px; }
@@ -36,9 +39,6 @@
     .highlight { font-weight: bold; color: #000; padding: 2px 6px; border-radius: 4px; background: #ffeb3b; }
 
     .hint { margin-top: 12px; color: #666; font-size: 14px; text-align:center; }
-    .ok { color: #0a7; font-weight: 650; }
-    .bad { color: #c33; font-weight: 650; }
-
     html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
   </style>
 </head>
@@ -80,13 +80,13 @@
         <button id="searchBtn" type="button">Buscar</button>
       </div>
       <div id="searchResults" class="search-results">
-        <p>Busca un clavo para ver sus conexiones (pasada por pasada).</p>
+        <p>Busca un clavo para ver sus conexiones.</p>
       </div>
     </div>
 
     <div class="hint">
-      <b>TIP:</b> Si deja de sonar, toca cualquier botón para reactivar el audio.<br>
-      <b>Agudo:</b> Siguiente | <b>Grave:</b> Anterior
+      <b>Controles:</b> Espacio/Flecha Derecha = Siguiente | Flecha Izquierda = Anterior<br>
+      <b>Colores:</b> <span class="par">Azul (Par)</span> | <span class="impar">Rojo (Impar)</span>
     </div>
   </div>
 
@@ -101,7 +101,6 @@
       gotoBtn: document.getElementById('gotoBtn'),
       reset: document.getElementById('reset'),
       clear: document.getElementById('clear'),
-      status: document.getElementById('status'),
       card: document.getElementById('card'),
       current: document.getElementById('current'),
       passCount: document.getElementById('pass-count'),
@@ -117,8 +116,8 @@
       searchSection: document.getElementById('searchSection')
     };
 
-    // Inicialización de audio robusta para iOS
-    function resumeAudio() {
+    // --- LÓGICA DE AUDIO ---
+    function initAudio() {
       if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       }
@@ -128,21 +127,26 @@
     }
 
     function playSound(type) {
-      resumeAudio();
+      initAudio();
+      // Crear un buffer de silencio corto para mantener el canal abierto en iOS
+      const buffer = audioCtx.createBuffer(1, 1, 22050);
+      const source = audioCtx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioCtx.destination);
+      source.start();
+
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       
       if (type === 'next') {
-        // Sonido Agudo y Fuerte
-        osc.frequency.setValueAtTime(900, audioCtx.currentTime); 
-        gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime); 
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
         osc.start();
-        osc.stop(audioCtx.currentTime + 0.15);
+        osc.stop(audioCtx.currentTime + 0.2);
       } else {
-        // Sonido Grave y más Largo
-        osc.frequency.setValueAtTime(200, audioCtx.currentTime); 
-        gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(220, audioCtx.currentTime); 
+        gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
         osc.start();
         osc.stop(audioCtx.currentTime + 0.4);
@@ -152,6 +156,7 @@
       gain.connect(audioCtx.destination);
     }
 
+    // --- LÓGICA DE NEGOCIO ---
     function getPassCount(targetIdx) {
       const pin = seq[targetIdx];
       let count = 0;
@@ -163,7 +168,10 @@
 
     function searchPinInfo() {
       const targetPin = Number(els.pinSearchInput.value);
-      if (isNaN(targetPin) || !seq.length) return;
+      if (els.pinSearchInput.value === "" || isNaN(targetPin) || !seq.length) {
+        els.searchResults.innerHTML = "<p>Ingresa un número de clavo válido.</p>";
+        return;
+      }
 
       let totalInSeq = 0;
       let countUntilNow = 0;
@@ -175,70 +183,111 @@
           if (idx <= i) countUntilNow++;
           const from = idx > 0 ? seq[idx-1] : "INICIO";
           const to = idx < seq.length - 1 ? seq[idx+1] : "FIN";
-          const statusIcon = idx < i ? "✅" : (idx === i ? "📍" : "⏳");
+          const isDone = idx < i ? "✅" : (idx === i ? "📍" : "⏳");
           
-          connections.push(`<li>${statusIcon} Pasada ${totalInSeq}: ${from} ➔ <span class="highlight">${targetPin}</span> ➔ ${to} <br><small>Paso ${idx+1}</small></li>`);
+          connections.push(`<li>${isDone} Pasada ${totalInSeq}: ${from} ➔ <span class="highlight">${targetPin}</span> ➔ ${to} <br><small>Paso ${idx+1}</small></li>`);
         }
       });
 
       els.searchResults.innerHTML = `
-        <p><b>Clavo ${targetPin}:</b> Pasada ${countUntilNow} de ${totalInSeq} totales.</p>
-        <ul class="connection-list">${connections.length ? connections.join('') : 'No encontrado en la secuencia.'}</ul>
+        <p><b>Clavo ${targetPin}:</b> Estás en la pasada ${countUntilNow} de ${totalInSeq} totales.</p>
+        <ul class="connection-list">${connections.length ? connections.join('') : 'No encontrado.'}</ul>
       `;
+    }
+
+    function setPinColor(element, value) {
+      if (value === '—') {
+        element.className = 'val';
+        return;
+      }
+      element.className = `val ${Number(value) % 2 === 0 ? 'par' : 'impar'}`;
     }
 
     function render() {
       if (!seq.length) return;
       const cur = seq[i];
-      els.current.childNodes[0].textContent = String(cur);
       
+      // Actualizar número principal
+      els.current.childNodes[0].textContent = String(cur);
+      els.current.className = `big ${cur % 2 === 0 ? 'par' : 'impar'}`;
+      
+      // Pasadas
       const count = getPassCount(i);
       els.passCount.textContent = count > 1 ? `x${count}` : '';
 
-      els.current.className = `big ${cur % 2 === 0 ? 'par' : 'impar'}`;
-      els.prev.textContent = i > 0 ? seq[i - 1] : '—';
-      els.next.textContent = i < seq.length - 1 ? seq[i + 1] : '—';
+      // Anterior / Siguiente con colores
+      const prevVal = i > 0 ? seq[i - 1] : '—';
+      const nextVal = i < seq.length - 1 ? seq[i + 1] : '—';
+      
+      els.prev.textContent = prevVal;
+      els.next.textContent = nextVal;
+      setPinColor(els.prev, prevVal);
+      setPinColor(els.next, nextVal);
+
       els.total.textContent = seq.length;
       els.progress.textContent = `Paso ${i + 1} de ${seq.length}`;
       
       localStorage.setItem('stringart_idx_v4', i);
+      
+      // Auto-actualizar historial si hay un clavo buscado
+      if (els.pinSearchInput.value !== "") searchPinInfo();
     }
 
-    async function handleFile(file) {
-      const text = await file.text();
-      seq = text.replace(/\r/g, '').replace(/\n/g, ',').split(',').map(s => s.trim()).filter(Boolean).map(Number);
-      i = 0;
-      els.card.style.display = 'block';
-      els.searchSection.style.display = 'block';
-      localStorage.setItem('stringart_seq_v4', JSON.stringify(seq));
-      render();
-    }
+    // --- EVENTOS ---
+    const nextAction = () => { if(i < seq.length-1){ i++; render(); playSound('next'); } };
+    const prevAction = () => { if(i > 0){ i--; render(); playSound('prev'); } };
 
-    // Eventos con desbloqueo de audio
-    els.nextBtn.addEventListener('click', () => { 
-      resumeAudio();
-      if(i < seq.length-1){ i++; render(); playSound('next'); } 
+    els.nextBtn.addEventListener('click', nextAction);
+    els.prevBtn.addEventListener('click', prevAction);
+    
+    // Al tocar el número actual (soporte móvil/tab)
+    els.current.addEventListener('click', nextAction);
+
+    // Teclado
+    window.addEventListener('keydown', e => {
+      if (document.activeElement.tagName === 'INPUT') return; // No interferir si escribe
+      if (e.code === 'Space' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        nextAction();
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prevAction();
+      }
     });
 
-    els.prevBtn.addEventListener('click', () => { 
-      resumeAudio();
-      if(i > 0){ i--; render(); playSound('prev'); } 
-    });
-
+    // Mejoras en el buscador
+    els.pinSearchInput.addEventListener('keydown', e => { if(e.key === 'Enter') searchPinInfo(); });
+    els.pinSearchInput.addEventListener('input', searchPinInfo); // Flechitas y escritura tiempo real
     els.searchBtn.addEventListener('click', searchPinInfo);
     
     els.gotoBtn.addEventListener('click', () => {
-      resumeAudio();
       const val = parseInt(els.gotoStep.value);
-      if(val >= 1 && val <= seq.length) { i = val - 1; render(); }
+      if(val >= 1 && val <= seq.length) { i = val - 1; render(); playSound('next'); }
     });
 
-    els.file.addEventListener('change', e => { if(e.target.files[0]) handleFile(e.target.files[0]); });
-    els.reset.addEventListener('click', () => { i = 0; render(); });
-    els.clear.addEventListener('click', () => { localStorage.clear(); location.reload(); });
+    els.file.addEventListener('change', e => { 
+      if(e.target.files[0]) {
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const text = event.target.result;
+          seq = text.replace(/\r/g, '').replace(/\n/g, ',').split(',').map(s => s.trim()).filter(Boolean).map(Number);
+          i = 0;
+          els.card.style.display = 'block';
+          els.searchSection.style.display = 'block';
+          localStorage.setItem('stringart_seq_v4', JSON.stringify(seq));
+          render();
+        };
+        reader.readAsText(e.target.files[0]);
+      }
+    });
 
-    // Desbloqueo de emergencia al tocar cualquier parte
-    document.addEventListener('touchstart', resumeAudio, { once: false });
+    els.reset.addEventListener('click', () => { if(confirm("¿Reiniciar al paso 1?")) { i = 0; render(); } });
+    els.clear.addEventListener('click', () => { if(confirm("¿Borrar todo?")) { localStorage.clear(); location.reload(); } });
+
+    // Desbloqueo de audio preventivo
+    document.addEventListener('touchstart', initAudio, { passive: true });
+    document.addEventListener('mousedown', initAudio, { passive: true });
 
     (function init() {
       const s = localStorage.getItem('stringart_seq_v4');
